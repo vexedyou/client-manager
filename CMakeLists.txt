@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(client-manager
     src/main.cpp
+    src/beacon.cpp
     src/util.cpp
     src/wmi.cpp
     src/sysinfo.cpp
@@ -17,7 +18,7 @@ add_executable(client-manager
     src/fs.cpp
 )
 
-target_include_directories(client-manager PRIVATE src)
+target_include_directories(client-manager PRIVATE src third_party)
 
 target_compile_definitions(client-manager PRIVATE
     UNICODE
@@ -45,6 +46,7 @@ add_test(NAME json-config COMMAND json-config-test)
 target_link_libraries(client-manager PRIVATE
     advapi32
     iphlpapi
+    winhttp
     ws2_32
     ole32
     oleaut32

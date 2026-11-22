@@ -20,7 +20,7 @@ if errorlevel 1 (
     echo [build] "Desktop development with C++", or install CMake.
     goto :fail
 )
-cl /std:c++17 /EHsc /W4 /O2 /DUNICODE /D_UNICODE /DWIN32_LEAN_AND_MEAN /DNOMINMAX /D_WIN32_WINNT=0x0A00 /Isrc src\*.cpp /Fe:client-manager.exe advapi32.lib iphlpapi.lib ws2_32.lib ole32.lib oleaut32.lib wbemuuid.lib shell32.lib secur32.lib taskschd.lib version.lib user32.lib kernel32.lib
+cl /std:c++17 /EHsc /W4 /O2 /DUNICODE /D_UNICODE /DWIN32_LEAN_AND_MEAN /DNOMINMAX /D_WIN32_WINNT=0x0A00 /Isrc /Ithird_party src\*.cpp /Fe:client-manager.exe advapi32.lib iphlpapi.lib winhttp.lib ws2_32.lib ole32.lib oleaut32.lib wbemuuid.lib shell32.lib secur32.lib taskschd.lib version.lib user32.lib kernel32.lib
 if errorlevel 1 goto :fail
 echo [build] Done: client-manager.exe
 goto :end

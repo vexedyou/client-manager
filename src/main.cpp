@@ -1,10 +1,8 @@
 // main.cpp — client-manager: Windows system inventory tool (MSVC, Win11).
 //
-// Usage: client-manager.exe <config.json> <report.json>
-//
-// Reads the config path from argv[1], writes one JSON report object to
-// argv[2] with keys: sys.info, proc.list, net.conn, svc.list,
-// persist.check, software.list, fs.list.
+// Usage: client-manager.exe --once <config.json> <report.json>
+//        client-manager.exe --beacon <config.json>
+// The legacy <config.json> <report.json> form remains supported.
 #include <winsock2.h>
 #include <windows.h>
 #include <objbase.h>
@@ -14,6 +12,8 @@
 #include <string>
 
 #include "config.hpp"
+#include "beacon.hpp"
+#include "report.hpp"
 #include "fs.hpp"
 #include "json.hpp"
 #include "net.hpp"
@@ -26,51 +26,9 @@
 
 using namespace cm;
 
-namespace {
 
-void PrintUsage(const wchar_t* prog) {
-    fwprintf(stderr, L"Usage: %s <config.json> <report.json>\n", prog);
-    fwprintf(stderr, L"  Reads inventory config from argv[1], writes JSON report to argv[2].\n");
-}
 
-size_t CountOf(const JsonValue& v) {
-    return v.isArray() ? v.asArray().size() : 0;
-}
-
-}  // namespace
-
-int wmain(int argc, wchar_t* argv[]) {
-    if (argc < 3) {
-        PrintUsage(argc > 0 ? argv[0] : L"client-manager.exe");
-        return 2;
-    }
-    std::wstring configPath = argv[1];
-    std::wstring outputPath = argv[2];
-
-    // --- read + parse config ------------------------------------------------
-    std::string configBytes;
-    if (!ReadFileBytes(configPath, configBytes)) {
-        fwprintf(stderr, L"error: cannot read config file: %s (%s)\n",
-                 configPath.c_str(), WinErrorString(GetLastError()).c_str());
-        return 1;
-    }
-    // Strip UTF-8 BOM if present.
-    if (configBytes.size() >= 3 &&
-        static_cast<unsigned char>(configBytes[0]) == 0xEF &&
-        static_cast<unsigned char>(configBytes[1]) == 0xBB &&
-        static_cast<unsigned char>(configBytes[2]) == 0xBF) {
-        configBytes.erase(0, 3);
-    }
-
-    Config cfg;
-    try {
-        JsonValue parsed = ParseJson(configBytes);
-        cfg = ParseConfig(parsed);
-    } catch (const std::exception& e) {
-        fwprintf(stderr, L"error: %hs\n", e.what());
-        return 1;
-    }
-
+cm::JsonValue cm::CollectReport(const Config& cfg) {
     // --- COM (WMI + Task Scheduler) -----------------------------------------
     HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     bool comOk = SUCCEEDED(hr);
@@ -83,7 +41,7 @@ int wmain(int argc, wchar_t* argv[]) {
     WSADATA winsockData{};
     const bool winsockOk = WSAStartup(MAKEWORD(2, 2), &winsockData) == 0;
 
-    // --- collect (order: sys.info, proc.list, persist.check, ...) -----------
+    // Collect a fresh snapshot.
     JsonValue root = JsonValue::object();
     root.set("generated_at_utc", JsonValue::stringWide(NowUtcIso()));
 
@@ -143,25 +101,38 @@ int wmain(int argc, wchar_t* argv[]) {
 
     if (winsockOk) WSACleanup();
     if (comOk) CoUninitialize();
+    return root;
 
-    // --- write report ---------------------------------------------------------
-    std::string report = root.dump(2);
-    if (!WriteFileBytes(outputPath, report)) {
-        fwprintf(stderr, L"error: cannot write report file: %s (%s)\n",
-                 outputPath.c_str(), WinErrorString(GetLastError()).c_str());
+}
+
+int wmain(int argc, wchar_t* argv[]) {
+    bool beacon = argc >= 2 && std::wstring(argv[1]) == L"--beacon";
+    bool once = argc >= 2 && std::wstring(argv[1]) == L"--once";
+    int configIndex = (beacon || once) ? 2 : 1;
+    if ((beacon && argc != 3) || (!beacon && argc != configIndex + 2)) {
+        fwprintf(stderr, L"Usage: %ls --once <config.json> <report.json>\n       %ls --beacon <config.json>\n", argv[0], argv[0]);
+        return 2;
+    }
+    std::string configBytes;
+    if (!ReadFileBytes(argv[configIndex], configBytes)) {
+        fwprintf(stderr, L"error: cannot read config file: %ls\n", argv[configIndex]);
         return 1;
     }
-
-    // --- summary --------------------------------------------------------------
-    auto reportCount = [&](const char* key) -> size_t {
-        const JsonValue* v = root.find(key);
-        return v ? CountOf(*v) : 0;
-    };
-    wprintf(L"Wrote report to %s\n", outputPath.c_str());
-    wprintf(L"  proc.list: %zu processes\n", reportCount("proc.list"));
-    wprintf(L"  net.conn: %zu connections\n", reportCount("net.conn"));
-    wprintf(L"  svc.list: %zu services\n", reportCount("svc.list"));
-    wprintf(L"  software.list: %zu entries\n", reportCount("software.list"));
-    wprintf(L"  fs.list: %zu path(s)\n", reportCount("fs.list"));
-    return 0;
+    if (configBytes.size() >= 3 && static_cast<unsigned char>(configBytes[0]) == 0xef &&
+        static_cast<unsigned char>(configBytes[1]) == 0xbb && static_cast<unsigned char>(configBytes[2]) == 0xbf)
+        configBytes.erase(0, 3);
+    try {
+        Config cfg = ParseConfig(ParseJson(configBytes));
+        if (beacon) return RunBeacon(configBytes, cfg);
+        JsonValue report = CollectReport(cfg);
+        if (!WriteFileBytes(argv[configIndex + 1], report.dump(2))) {
+            fwprintf(stderr, L"error: cannot write report file: %ls\n", argv[configIndex + 1]);
+            return 1;
+        }
+        wprintf(L"Wrote report to %ls\n", argv[configIndex + 1]);
+        return 0;
+    } catch (const std::exception& e) {
+        fprintf(stderr, "error: %s\n", e.what());
+        return 1;
+    }
 }

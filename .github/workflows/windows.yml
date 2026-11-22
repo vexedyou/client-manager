@@ -8,7 +8,16 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
       - name: Build
-        run: cmake --build build --config Release
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          cmake --build build --config Release 2>&1 | Tee-Object -Variable buildOutput
+          if ($LASTEXITCODE -ne 0) {
+            $buildOutput | Select-String -Pattern 'error|fatal|LNK' | Select-Object -First 20 | ForEach-Object {
+              Write-Output ("::error::" + $_.ToString().Replace('%', '%25'))
+            }
+            exit 1
+          }
       - name: JSON and config tests
         run: ctest --test-dir build -C Release --output-on-failure
       - name: Smoke test

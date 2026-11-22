@@ -9,7 +9,7 @@ try {
     $report = Join-Path $work 'report.json'
     @{ fs_paths = @($work); fs_recursive = $false; include = @{ svc_list = $false } } |
         ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 $config
-    & $Executable $config $report
+    & $Executable --once $config $report
     if ($LASTEXITCODE -ne 0) { throw "client-manager failed: $LASTEXITCODE" }
     $result = Get-Content -Raw -Encoding utf8 $report | ConvertFrom-Json
     foreach ($key in @('sys.info','proc.list','net.conn','persist.check','software.list','fs.list')) {

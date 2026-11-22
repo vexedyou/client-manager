@@ -1,0 +1,7 @@
+build/
+dashboard/node_modules/
+dashboard/dist/
+server/agents.json
+*.key
+*.crt
+report.json

@@ -12,5 +12,10 @@
     "persist_check": true,
     "software_list": true,
     "fs_list": true
-  }
+  },
+  "c2_url": "https://localhost:8443",
+  "agent_id": "example-workstation",
+  "agent_token": "replace-with-a-long-random-secret",
+  "interval_sec": 300,
+  "jitter_pct": 10
 }
