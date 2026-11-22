@@ -1,0 +1,16 @@
+name: Windows build and smoke test
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+      - name: Build
+        run: cmake --build build --config Release
+      - name: JSON and config tests
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Smoke test
+        shell: pwsh
+        run: ./tests/windows_smoke.ps1 -Executable ./build/Release/client-manager.exe

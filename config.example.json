@@ -1,0 +1,16 @@
+{
+  "fs_paths": [
+    "C:\\Windows\\System32",
+    "C:\\Program Files"
+  ],
+  "fs_recursive": false,
+  "include": {
+    "sys_info": true,
+    "proc_list": true,
+    "net_conn": true,
+    "svc_list": true,
+    "persist_check": true,
+    "software_list": true,
+    "fs_list": true
+  }
+}
