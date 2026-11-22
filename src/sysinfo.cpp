@@ -8,7 +8,7 @@
 #include <iphlpapi.h>
 #include <lmcons.h>
 #define SECURITY_WIN32
-#include <secext.h>
+#include <security.h>
 
 #include <algorithm>
 #include <cstdio>
